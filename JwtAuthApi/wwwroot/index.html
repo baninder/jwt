@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT Auth API Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, button, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .response {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .token-info {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d7ff;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .success {
+            color: #155724;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>JWT Authentication API Demo</h1>
+    
+    <div class="container">
+        <h2>API Information</h2>
+        <button onclick="getPublicInfo()">Get Public API Info</button>
+        <div id="publicInfoResponse" class="response" style="display: none;"></div>
+    </div>
+
+    <div class="grid">
+        <div class="container">
+            <h2>Login</h2>
+            <div class="form-group">
+                <label for="loginEmail">Email:</label>
+                <input type="email" id="loginEmail" value="admin@example.com" placeholder="Enter email">
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Password:</label>
+                <input type="password" id="loginPassword" value="admin123" placeholder="Enter password">
+            </div>
+            <button onclick="login()">Login</button>
+            <div id="loginResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="container">
+            <h2>Register</h2>
+            <div class="form-group">
+                <label for="regEmail">Email:</label>
+                <input type="email" id="regEmail" placeholder="Enter email">
+            </div>
+            <div class="form-group">
+                <label for="regFirstName">First Name:</label>
+                <input type="text" id="regFirstName" placeholder="Enter first name">
+            </div>
+            <div class="form-group">
+                <label for="regLastName">Last Name:</label>
+                <input type="text" id="regLastName" placeholder="Enter last name">
+            </div>
+            <div class="form-group">
+                <label for="regPassword">Password:</label>
+                <input type="password" id="regPassword" placeholder="Enter password (min 6 chars)">
+            </div>
+            <button onclick="register()">Register</button>
+            <div id="registerResponse" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="container" id="tokenContainer" style="display: none;">
+        <h2>Current Token</h2>
+        <div class="token-info">
+            <strong>Token:</strong> <span id="currentToken"></span><br>
+            <strong>Expires:</strong> <span id="tokenExpiry"></span><br>
+            <strong>User:</strong> <span id="currentUser"></span>
+        </div>
+        <button onclick="validateToken()">Validate Token</button>
+        <button onclick="logout()">Logout</button>
+        <div id="validateResponse" class="response" style="display: none;"></div>
+    </div>
+
+    <div class="container" id="protectedContainer" style="display: none;">
+        <h2>Protected Endpoints (Requires Authentication)</h2>
+        
+        <div class="grid">
+            <div>
+                <h3>User Endpoints</h3>
+                <button onclick="getUserProfile()">Get User Profile</button>
+                <button onclick="getUserDashboard()">Get User Dashboard</button>
+                <div id="userResponse" class="response" style="display: none;"></div>
+            </div>
+            
+            <div>
+                <h3>Admin Endpoints (Admin Role Required)</h3>
+                <button onclick="getAllUsers()">Get All Users</button>
+                <button onclick="getAnalytics()">Get Analytics</button>
+                <div id="adminResponse" class="response" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5192/api'; // Update this to match your API URL
+        let currentToken = null;
+        let currentUser = null;
+
+        // Utility function to make API calls
+        async function apiCall(endpoint, method = 'GET', body = null, useAuth = false) {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+
+            if (useAuth && currentToken) {
+                headers['Authorization'] = `Bearer ${currentToken}`;
+            }
+
+            const options = {
+                method,
+                headers
+            };
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                const data = await response.json();
+                
+                return {
+                    success: response.ok,
+                    status: response.status,
+                    data: data
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    error: error.message
+                };
+            }
+        }
+
+        // Display response in UI
+        function displayResponse(elementId, response) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.textContent = JSON.stringify(response, null, 2);
+            
+            if (response.success) {
+                element.className = 'response success';
+            } else {
+                element.className = 'response error';
+            }
+        }
+
+        // Update UI based on authentication state
+        function updateUI() {
+            const tokenContainer = document.getElementById('tokenContainer');
+            const protectedContainer = document.getElementById('protectedContainer');
+            
+            if (currentToken) {
+                tokenContainer.style.display = 'block';
+                protectedContainer.style.display = 'block';
+                
+                document.getElementById('currentToken').textContent = currentToken.substring(0, 50) + '...';
+                document.getElementById('currentUser').textContent = currentUser ? `${currentUser.firstName} ${currentUser.lastName} (${currentUser.role})` : 'Unknown';
+            } else {
+                tokenContainer.style.display = 'none';
+                protectedContainer.style.display = 'none';
+            }
+        }
+
+        // API Functions
+        async function getPublicInfo() {
+            const response = await apiCall('/public/info');
+            displayResponse('publicInfoResponse', response);
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            const response = await apiCall('/auth/login', 'POST', { email, password });
+            displayResponse('loginResponse', response);
+            
+            if (response.success && response.data.token) {
+                currentToken = response.data.token;
+                currentUser = response.data.user;
+                document.getElementById('tokenExpiry').textContent = new Date(response.data.expiresAt).toLocaleString();
+                updateUI();
+            }
+        }
+
+        async function register() {
+            const email = document.getElementById('regEmail').value;
+            const firstName = document.getElementById('regFirstName').value;
+            const lastName = document.getElementById('regLastName').value;
+            const password = document.getElementById('regPassword').value;
+            
+            const response = await apiCall('/auth/register', 'POST', {
+                email, firstName, lastName, password, role: 'User'
+            });
+            displayResponse('registerResponse', response);
+            
+            if (response.success && response.data.token) {
+                currentToken = response.data.token;
+                currentUser = response.data.user;
+                document.getElementById('tokenExpiry').textContent = new Date(response.data.expiresAt).toLocaleString();
+                updateUI();
+            }
+        }
+
+        async function validateToken() {
+            if (!currentToken) {
+                displayResponse('validateResponse', { success: false, error: 'No token available' });
+                return;
+            }
+            
+            const response = await apiCall('/auth/validate-token', 'POST', currentToken);
+            displayResponse('validateResponse', response);
+        }
+
+        async function getUserProfile() {
+            const response = await apiCall('/user/profile', 'GET', null, true);
+            displayResponse('userResponse', response);
+        }
+
+        async function getUserDashboard() {
+            const response = await apiCall('/user/dashboard', 'GET', null, true);
+            displayResponse('userResponse', response);
+        }
+
+        async function getAllUsers() {
+            const response = await apiCall('/admin/users', 'GET', null, true);
+            displayResponse('adminResponse', response);
+        }
+
+        async function getAnalytics() {
+            const response = await apiCall('/admin/analytics', 'GET', null, true);
+            displayResponse('adminResponse', response);
+        }
+
+        function logout() {
+            currentToken = null;
+            currentUser = null;
+            updateUI();
+            
+            // Clear all response displays
+            const responses = document.querySelectorAll('.response');
+            responses.forEach(el => el.style.display = 'none');
+        }
+
+        // Initialize UI
+        updateUI();
+    </script>
+</body>
+</html>

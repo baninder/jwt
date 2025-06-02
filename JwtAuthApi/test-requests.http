@@ -1,0 +1,73 @@
+### JWT Authentication API Test Requests
+
+# 1. Get Public API Information
+GET http://localhost:5192/api/public/info
+
+###
+
+# 2. Health Check
+GET http://localhost:5192/api/public/health
+
+###
+
+# 3. Login with Admin User
+POST http://localhost:5192/api/auth/login
+Content-Type: application/json
+
+{
+    "email": "admin@example.com",
+    "password": "admin123"
+}
+
+###
+
+# 4. Login with Regular User
+POST http://localhost:5192/api/auth/register
+Content-Type: application/json
+
+{
+    "email": "newuser@example.com",
+    "firstName": "New",
+    "lastName": "User", 
+    "password": "password123",
+    "role": "User"
+}
+
+###
+
+# 5. Get User Profile (Requires Authentication - Replace YOUR_JWT_TOKEN)
+GET http://localhost:5192/api/user/profile
+Authorization: Bearer YOUR_JWT_TOKEN
+
+###
+
+# 6. Get User Dashboard (Requires Authentication - Replace YOUR_JWT_TOKEN)
+GET http://localhost:5192/api/user/dashboard
+Authorization: Bearer YOUR_JWT_TOKEN
+
+###
+
+# 7. Get All Users (Requires Admin Role - Replace YOUR_ADMIN_JWT_TOKEN)
+GET http://localhost:5192/api/admin/users
+Authorization: Bearer YOUR_ADMIN_JWT_TOKEN
+
+###
+
+# 8. Get Analytics (Requires Admin Role - Replace YOUR_ADMIN_JWT_TOKEN)
+GET http://localhost:5192/api/admin/analytics
+Authorization: Bearer YOUR_ADMIN_JWT_TOKEN
+
+###
+
+# 9. Validate Token
+POST http://localhost:5192/api/auth/validate-token
+Content-Type: application/json
+
+"YOUR_JWT_TOKEN"
+
+###
+
+# Test sequence:
+# 1. Run the login request (#3) and copy the token from the response
+# 2. Replace YOUR_JWT_TOKEN in requests #5 and #6 with the actual token
+# 3. If you logged in as admin, you can also use the token for admin endpoints (#7, #8)
