@@ -1,0 +1,37 @@
+trigger: none
+
+# This pipeline assumes the image is already built and pushed to ACR by the main pipeline.
+# It deploys the latest image to an Azure Function App (Linux, custom container).
+
+variables:
+  azureSubscription: 'AZURE_SERVICE_CONNECTION_NAME' # Azure DevOps service connection
+  functionAppName: 'YOUR_FUNCTION_APP_NAME'           # Azure Function App name
+  containerRegistry: 'YOUR_ACR_NAME.azurecr.io'       # Azure Container Registry login server
+  imageRepository: 'jwtauthapi'                       # Docker image repo
+  tag: 'latest'                                      # Or use $(Build.BuildId) for versioned deploys
+  resourceGroup: 'YOUR_RESOURCE_GROUP'                # Resource group for the Function App
+
+stages:
+- stage: Deploy
+  displayName: Deploy to Azure Function App
+  jobs:
+  - deployment: DeployFunctionApp
+    displayName: Deploy Function App
+    environment: 'production'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureWebAppContainer@2
+            displayName: 'Deploy to Azure Function App (Linux, custom container)'
+            inputs:
+              azureSubscription: $(azureSubscription)
+              appName: $(functionAppName)
+              resourceGroupName: $(resourceGroup)
+              containers: |
+                $(containerRegistry)/$(imageRepository):$(tag)
+              configurationStrings: |
+                WEBSITES_PORT=80
+                ASPNETCORE_ENVIRONMENT=Development

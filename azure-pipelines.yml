@@ -1,0 +1,52 @@
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+variables:
+  # Set these in Azure DevOps Pipeline Library or as pipeline variables
+  dockerRegistryServiceConnection: 'ACR_SERVICE_CONNECTION_NAME' # Service connection name
+  imageRepository: 'jwtauthapi'
+  containerRegistry: 'YOUR_ACR_NAME.azurecr.io'
+  tag: '$(Build.BuildId)'
+  buildConfiguration: 'Release'
+
+stages:
+- stage: BuildAndPush
+  displayName: Build, Test, and Push Docker Image
+  jobs:
+  - job: Build
+    displayName: Build and Test
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET X SDK'
+      inputs:
+        packageType: 'sdk'
+        version: '8.0.x' # Specify the .NET SDK version you need
+
+    - script: dotnet restore JwtAuthApi/JwtAuthApi.csproj
+      displayName: 'Restore NuGet packages'
+
+    - script: dotnet build JwtAuthApi/JwtAuthApi.csproj --configuration $(buildConfiguration) --no-restore
+      displayName: 'Build'
+
+    - script: dotnet test JwtAuthApi/JwtAuthApi.csproj --configuration $(buildConfiguration) --no-build --verbosity normal
+      displayName: 'Run Tests'
+
+    - task: Docker@2
+      displayName: 'Build and Push Docker Image'
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: JwtAuthApi/Dockerfile
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+          latest
+
+    - publish: JwtAuthApi/bin/$(buildConfiguration)/net10.0
+      artifact: api-build
